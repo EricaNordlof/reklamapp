@@ -17,7 +17,33 @@
 </div>
 
 <div class="card">
+  <h2>Gör detta idag</h2>
+  {% if focus_tasks %}
+  <div class="focus-list">
+    {% for task in focus_tasks %}
+    <div class="focus-item">
+      <strong>{{ task.channel }}</strong> · {{ task.task_date }}<br>
+      {{ task.title }}
+      {% if task.campaign_id %}<br><a href="{{ url_for('campaign_view', campaign_id=task.campaign_id) }}">Öppna kampanj: {{ task.campaign_name }}</a>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="subtle">Inget brinner idag. Skapa en kampanj eller följ upp ett lead ändå. Marknaden bokar inte sig själv, tyvärr.</p>
+  {% endif %}
+</div>
+
+<div class="card">
   <h2>Skapa ny kampanj</h2>
+  <p class="lead">Välj snabbmall om du vill slippa stirra på tomma fält som en skattebilaga.</p>
+  <div class="quick-template">
+    <button type="button" class="light" onclick="fillCampaignTemplate('barnkalas')">Barnkalas</button>
+    <button type="button" class="light" onclick="fillCampaignTemplate('skola')">Skola/fritids</button>
+    <button type="button" class="light" onclick="fillCampaignTemplate('forening')">Förening</button>
+    <button type="button" class="light" onclick="fillCampaignTemplate('foretag')">Företag/vuxenbollar</button>
+    <button type="button" class="light" onclick="fillCampaignTemplate('flyer')">Flyer park/café</button>
+  </div>
+
   <form method="post">
     <div class="row">
       <div>
@@ -106,6 +132,28 @@
     <p class="subtle">Inga klick ännu. Helt okej. Appen är ny, inte synsk.</p>
     {% endif %}
   </div>
+</div>
+
+<div class="card">
+  <h2>Platser/grupper att posta i</h2>
+  {% if places %}
+  <table>
+    <thead><tr><th>Namn</th><th>Kanal</th><th>Område</th><th>Länk</th></tr></thead>
+    <tbody>
+      {% for place in places %}
+      <tr>
+        <td><strong>{{ place.name }}</strong><br><small>{{ place.note }}</small></td>
+        <td>{{ place.channel }}</td>
+        <td>{{ place.area }}</td>
+        <td>{% if place.url %}<a href="{{ place.url }}" target="_blank" rel="noopener">Öppna</a>{% else %}–{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="subtle">Lägg in Facebookgrupper, Reddittrådar, caféer och andra ställen där du brukar posta eller lämna flyers.</p>
+  {% endif %}
+  <a class="button light" href="{{ url_for('places') }}">Hantera platser/grupper</a>
 </div>
 
 <div class="card">
