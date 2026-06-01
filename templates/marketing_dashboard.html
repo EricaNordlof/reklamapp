@@ -1,0 +1,154 @@
+{% extends "marketing_base.html" %}
+{% block title %}Dashboard | Offroad Bumpis Marketing OS{% endblock %}
+{% block body %}
+<div class="card">
+  <h1>Marknadsförings-autopilot</h1>
+  <p class="lead">Skapa kampanj, få färdiga texter, QR-kod, spårningslänkar och att-göra-lista. Inget fluff. Bara säljrörelse.</p>
+  <div class="info">
+    <strong>Dagens fokus:</strong> posta något, följ upp någon, mät vad som händer. Likes betalar inte fakturan, bokningar gör.
+  </div>
+
+  <div class="grid-4">
+    <div class="mini-card"><span class="stat">{{ stats.active_campaigns }}</span><strong>aktiva kampanjer</strong></div>
+    <div class="mini-card"><span class="stat">{{ stats.todo_tasks }}</span><strong>att göra</strong></div>
+    <div class="mini-card"><span class="stat">{{ stats.open_leads }}</span><strong>öppna leads</strong></div>
+    <div class="mini-card"><span class="stat">{{ stats.clicks_14 }}</span><strong>klick senaste 14 dagarna</strong></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Skapa ny kampanj</h2>
+  <form method="post">
+    <div class="row">
+      <div>
+        <label for="name">Kampanjnamn</label>
+        <input id="name" name="name" placeholder="Exempel: Sommarlov med bumperballs" required>
+      </div>
+      <div>
+        <label for="area">Område</label>
+        <input id="area" name="area" value="Skåne" placeholder="Malmö, Lund, Trelleborg, Helsingborg...">
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="audience">Målgrupp</label>
+        <select id="audience" name="audience">
+          {% for item in audiences %}<option value="{{ item }}">{{ item }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="product">Produkt</label>
+        <select id="product" name="product">
+          {% for item in products %}<option value="{{ item }}">{{ item }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <label for="offer">Erbjudande / vinkel</label>
+    <input id="offer" name="offer" value="Boka utan kostnad. Betala senast 3 dagar före utlämning, annars släpps bokningen bara.">
+
+    <div class="row">
+      <div>
+        <label for="target_url">Bokningslänk</label>
+        <input id="target_url" name="target_url" value="{{ booking_url }}">
+      </div>
+      <div>
+        <label for="code">Kampanjkod</label>
+        <input id="code" name="code" placeholder="Lämna tomt så skapas den automatiskt">
+      </div>
+    </div>
+
+    <label for="notes">Anteckning</label>
+    <textarea id="notes" name="notes" rows="3" placeholder="Exempel: fokus på skolavslutning, flyers vid caféer nära parker..."></textarea>
+
+    <button class="green" type="submit">Skapa kampanj</button>
+  </form>
+</div>
+
+<div class="row">
+  <div class="card">
+    <h2>Att göra</h2>
+    {% if tasks %}
+    <table>
+      <thead><tr><th>Datum</th><th>Uppgift</th><th>Kampanj</th></tr></thead>
+      <tbody>
+        {% for task in tasks %}
+        <tr>
+          <td>{{ task.task_date }}</td>
+          <td><strong>{{ task.channel }}</strong><br>{{ task.title }}</td>
+          <td>{% if task.campaign_id %}<a href="{{ url_for('campaign_view', campaign_id=task.campaign_id) }}">{{ task.campaign_name }}</a>{% else %}–{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="subtle">Inga uppgifter. Skapa en kampanj och tryck på “Skapa marknadsföring”.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Senaste klick</h2>
+    {% if clicks %}
+    <table>
+      <thead><tr><th>Tid</th><th>Källa</th><th>Kampanj</th></tr></thead>
+      <tbody>
+        {% for click in clicks %}
+        <tr>
+          <td>{{ click.created_at }}</td>
+          <td>{{ click.ref }}</td>
+          <td>{{ click.campaign_name or click.code }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="subtle">Inga klick ännu. Helt okej. Appen är ny, inte synsk.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Kampanjer</h2>
+  {% if campaigns %}
+  <table>
+    <thead><tr><th>Namn</th><th>Målgrupp</th><th>Område</th><th>Kod</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for c in campaigns %}
+      <tr>
+        <td><a href="{{ url_for('campaign_view', campaign_id=c.id) }}"><strong>{{ c.name }}</strong></a><br><small>{{ c.created_at }}</small></td>
+        <td>{{ c.audience }}</td>
+        <td>{{ c.area }}</td>
+        <td><strong>{{ c.code }}</strong></td>
+        <td><span class="status {{ c.status }}">{{ c.status|status_label }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="subtle">Ingen kampanj ännu. Börja med en. Rom byggdes inte heller med passiv räckvidd.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Senaste leads</h2>
+  {% if leads %}
+  <table>
+    <thead><tr><th>Namn</th><th>Typ</th><th>Källa</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for lead in leads %}
+      <tr>
+        <td>{{ lead.name }}<br><small>{{ lead.contact }}</small></td>
+        <td>{{ lead.lead_type }}<br><small>{{ lead.municipality }}</small></td>
+        <td>{{ lead.source }}</td>
+        <td><span class="status {{ lead.status }}">{{ lead.status|status_label }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="subtle">Inga leads inlagda ännu.</p>
+  {% endif %}
+  <a class="button light" href="{{ url_for('leads') }}">Öppna leadbanken</a>
+</div>
+{% endblock %}

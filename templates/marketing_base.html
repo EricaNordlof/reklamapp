@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Marketing OS | Offroad Bumpis{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png">
+  <style>
+    :root {
+      --green:#0f5f2f;
+      --green-dark:#0b3b1f;
+      --mint:#ecfdf3;
+      --mint-border:#bbf7d0;
+      --navy:#111827;
+      --slate:#475569;
+      --border:#e2e8f0;
+      --warning:#fff8dd;
+      --warning-border:#fde68a;
+      --danger:#fee2e2;
+      --danger-border:#fecaca;
+    }
+
+    * { box-sizing:border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+      background:#f7f7fb;
+      color:#111827;
+    }
+
+    .brand {
+      display:flex;
+      justify-content:center;
+      margin-bottom:18px;
+    }
+
+    .brand img {
+      width:min(260px, 78vw);
+      height:auto;
+      display:block;
+    }
+
+    .nav {
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:10px;
+      margin:0 0 18px;
+    }
+
+    .nav a {
+      color:#0f172a;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:9px 13px;
+      text-decoration:none;
+      font-weight:900;
+      box-shadow:0 3px 14px rgba(0,0,0,.04);
+    }
+
+    .card {
+      background:white;
+      padding:26px;
+      border-radius:18px;
+      box-shadow:0 8px 28px rgba(0,0,0,.08);
+      margin-bottom:18px;
+    }
+
+    h1 {
+      margin:0 0 10px;
+      font-size:34px;
+      line-height:1.05;
+    }
+
+    h2 {
+      margin:0 0 12px;
+      font-size:24px;
+    }
+
+    h3 {
+      margin:0 0 8px;
+      font-size:18px;
+    }
+
+    .lead {
+      margin:0 0 14px;
+      color:#334155;
+      line-height:1.45;
+    }
+
+    .info {
+      background:var(--mint);
+      border:1px solid var(--mint-border);
+      border-radius:14px;
+      padding:14px;
+      margin:14px 0 20px;
+      font-size:15px;
+      line-height:1.45;
+    }
+
+    .note {
+      background:var(--warning);
+      border:1px solid var(--warning-border);
+      border-radius:14px;
+      padding:13px;
+      margin:12px 0;
+      font-weight:700;
+      color:#513b08;
+      line-height:1.35;
+    }
+
+    .error {
+      background:var(--danger);
+      border:1px solid var(--danger-border);
+      padding:12px;
+      border-radius:10px;
+      font-weight:700;
+      margin:0 0 14px;
+    }
+
+    label {
+      display:block;
+      margin-top:14px;
+      font-weight:700;
+    }
+
+    input,
+    textarea,
+    select {
+      width:100%;
+      padding:11px;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      box-sizing:border-box;
+      background:#fff;
+      font:inherit;
+    }
+
+    textarea {
+      resize:vertical;
+      min-height:110px;
+      line-height:1.38;
+    }
+
+    .copy-textarea {
+      min-height:250px;
+      white-space:pre-wrap;
+    }
+
+    small {
+      color:var(--slate);
+      display:block;
+      margin-top:5px;
+      line-height:1.35;
+    }
+
+    button,
+    .button {
+      display:inline-block;
+      margin-top:12px;
+      padding:11px 16px;
+      border:0;
+      border-radius:999px;
+      background:var(--navy);
+      color:white;
+      text-decoration:none;
+      font-weight:900;
+      cursor:pointer;
+      font:inherit;
+    }
+
+    button:hover,
+    .button:hover { background:#020617; }
+
+    .button.green,
+    button.green { background:var(--green); }
+    .button.green:hover,
+    button.green:hover { background:var(--green-dark); }
+
+    .button.light,
+    button.light {
+      background:#fff;
+      color:#0f172a;
+      border:1px solid var(--border);
+    }
+
+    .button.light:hover,
+    button.light:hover { background:#f8fafc; }
+
+    .row {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+
+    .grid-3 {
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:14px;
+    }
+
+    .grid-4 {
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:14px;
+    }
+
+    .mini-card {
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      box-shadow:0 3px 14px rgba(0,0,0,.04);
+    }
+
+    .stat {
+      display:block;
+      font-size:32px;
+      line-height:1.1;
+      font-weight:900;
+      color:#143b20;
+      margin-bottom:4px;
+    }
+
+    .subtle { color:var(--slate); line-height:1.45; }
+
+    .actions {
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
+
+    table {
+      width:100%;
+      border-collapse:collapse;
+      background:white;
+      border-radius:14px;
+      overflow:hidden;
+    }
+
+    th,
+    td {
+      border:1px solid #cbd5e1;
+      padding:8px;
+      vertical-align:top;
+      text-align:left;
+    }
+
+    th {
+      background:#111827;
+      color:white;
+    }
+
+    .status {
+      display:inline-block;
+      padding:4px 9px;
+      border-radius:999px;
+      background:#f1f5f9;
+      color:#0f172a;
+      font-weight:900;
+      font-size:13px;
+    }
+
+    .status.active,
+    .status.posted,
+    .status.done,
+    .status.bokad { background:#dcfce7; color:#166534; }
+
+    .status.paused,
+    .status.todo,
+    .status.draft,
+    .status.kontaktad,
+    .status.svarat,
+    .status.inte_nu { background:#fff8dd; color:#713f12; }
+
+    .status.död { background:#fee2e2; color:#991b1b; }
+
+    .post-card {
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:16px;
+      margin-top:14px;
+      background:#fff;
+      box-shadow:0 3px 14px rgba(0,0,0,.04);
+    }
+
+    .post-head {
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      margin-bottom:8px;
+    }
+
+    .qr-box {
+      display:flex;
+      gap:16px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .qr-box img {
+      width:150px;
+      height:150px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      background:white;
+    }
+
+    .link-list {
+      display:grid;
+      gap:8px;
+    }
+
+    .link-pill {
+      display:grid;
+      grid-template-columns:160px 1fr auto;
+      gap:8px;
+      align-items:center;
+      background:#f8fafc;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:8px;
+    }
+
+    .link-pill input { margin:0; }
+
+    .inline-form {
+      display:grid;
+      gap:8px;
+    }
+
+    @media(max-width:800px) {
+      body { padding:12px; }
+      .card { padding:18px; }
+      h1 { font-size:28px; }
+      .row,
+      .grid-3,
+      .grid-4,
+      .link-pill { grid-template-columns:1fr; }
+      table { font-size:12px; }
+      th, td { padding:6px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="brand">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Offroad Bumpis logga" onerror="this.style.display='none'">
+  </div>
+
+  {% if session.get('admin') %}
+  <nav class="nav">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('leads') }}">Leads</a>
+    <a href="{{ url_for('export_leads') }}">Exportera leads</a>
+    <a href="{{ url_for('logout') }}">Logga ut</a>
+  </nav>
+  {% endif %}
+
+  {% block body %}{% endblock %}
+
+  <script>
+    function copyById(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.select();
+      el.setSelectionRange(0, 999999);
+      navigator.clipboard.writeText(el.value).then(() => {
+        const old = document.activeElement;
+        if (old && old.tagName === 'BUTTON') {
+          const text = old.textContent;
+          old.textContent = 'Kopierat';
+          setTimeout(() => old.textContent = text, 1200);
+        }
+      }).catch(() => document.execCommand('copy'));
+    }
+  </script>
+</body>
+</html>

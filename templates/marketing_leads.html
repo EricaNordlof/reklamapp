@@ -1,0 +1,115 @@
+{% extends "marketing_base.html" %}
+{% block title %}Leads | Offroad Bumpis Marketing OS{% endblock %}
+{% block body %}
+<div class="card">
+  <h1>Leadbank</h1>
+  <p class="lead">Alla människor, skolor, föreningar, företag, caféer och tips som kan bli bokningar. Pengarna ligger i uppföljningen. Tyvärr. Men appen tjatar i alla fall artigt.</p>
+</div>
+
+<div class="card">
+  <h2>Lägg till lead</h2>
+  <form method="post">
+    <div class="row">
+      <div>
+        <label for="name">Namn / organisation</label>
+        <input id="name" name="name" required placeholder="Exempel: Bulltofta café, klassförälder, IFK...">
+      </div>
+      <div>
+        <label for="lead_type">Typ</label>
+        <select id="lead_type" name="lead_type">
+          <option>Privatperson</option>
+          <option>Skola/fritids</option>
+          <option>Förening/lag</option>
+          <option>Företag</option>
+          <option>Café/park/samarbete</option>
+          <option>Annat</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="municipality">Kommun/område</label>
+        <input id="municipality" name="municipality" placeholder="Malmö, Lund, Trelleborg...">
+      </div>
+      <div>
+        <label for="contact">Kontakt</label>
+        <input id="contact" name="contact" placeholder="E-post, telefon, Instagram, FB...">
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="source">Källa</label>
+        <input id="source" name="source" placeholder="Facebook, flyer, Reddit, Google, tips...">
+      </div>
+      <div>
+        <label for="campaign_id">Kampanj</label>
+        <select id="campaign_id" name="campaign_id">
+          <option value="">Ingen kampanj</option>
+          {% for c in campaigns %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="status">Status</label>
+        <select id="status" name="status">
+          <option value="ny">Ny</option>
+          <option value="kontaktad">Kontaktad</option>
+          <option value="svarat">Svarat</option>
+          <option value="bokad">Bokad</option>
+          <option value="inte_nu">Inte nu</option>
+          <option value="död">Död lead</option>
+        </select>
+      </div>
+      <div>
+        <label for="next_step">Nästa steg</label>
+        <input id="next_step" name="next_step" placeholder="Exempel: följ upp fredag, skicka pris, fråga datum">
+      </div>
+    </div>
+
+    <label for="note">Anteckning</label>
+    <textarea id="note" name="note" rows="3"></textarea>
+
+    <button class="green" type="submit">Lägg till lead</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Alla leads</h2>
+  {% if leads %}
+  <table>
+    <thead><tr><th>Namn</th><th>Typ/område</th><th>Kontakt/källa</th><th>Kampanj</th><th>Status / nästa steg</th></tr></thead>
+    <tbody>
+      {% for lead in leads %}
+      <tr>
+        <td><strong>{{ lead.name }}</strong><br><small>{{ lead.created_at }}</small></td>
+        <td>{{ lead.lead_type }}<br><small>{{ lead.municipality }}</small></td>
+        <td>{{ lead.contact }}<br><small>{{ lead.source }}</small></td>
+        <td>{{ lead.campaign_name or '–' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('lead_update', lead_id=lead.id) }}">
+            <select name="status">
+              <option value="ny" {% if lead.status == 'ny' %}selected{% endif %}>Ny</option>
+              <option value="kontaktad" {% if lead.status == 'kontaktad' %}selected{% endif %}>Kontaktad</option>
+              <option value="svarat" {% if lead.status == 'svarat' %}selected{% endif %}>Svarat</option>
+              <option value="bokad" {% if lead.status == 'bokad' %}selected{% endif %}>Bokad</option>
+              <option value="inte_nu" {% if lead.status == 'inte_nu' %}selected{% endif %}>Inte nu</option>
+              <option value="död" {% if lead.status == 'död' %}selected{% endif %}>Död lead</option>
+            </select>
+            <input name="next_step" value="{{ lead.next_step or '' }}" placeholder="Nästa steg">
+            <textarea name="note" rows="3" placeholder="Anteckning">{{ lead.note or '' }}</textarea>
+            <button type="submit">Spara</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="subtle">Inga leads ännu.</p>
+  {% endif %}
+</div>
+{% endblock %}

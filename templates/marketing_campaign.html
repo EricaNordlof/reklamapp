@@ -1,0 +1,180 @@
+{% extends "marketing_base.html" %}
+{% block title %}{{ campaign.name }} | Marketing OS{% endblock %}
+{% block body %}
+<div class="card">
+  <h1>{{ campaign.name }}</h1>
+  <p class="lead">{{ campaign.audience }} · {{ campaign.product }} · {{ campaign.area }}</p>
+  <div class="info">
+    <strong>Kampanjkod:</strong> {{ campaign.code }}<br>
+    <strong>Erbjudande:</strong> {{ campaign.offer }}<br>
+    <strong>Mål-länk:</strong> {{ campaign.target_url }}
+  </div>
+
+  <div class="actions">
+    <form method="post" action="{{ url_for('campaign_generate', campaign_id=campaign.id) }}">
+      <button class="green" type="submit">Skapa marknadsföring</button>
+    </form>
+    <a class="button light" href="{{ url_for('dashboard') }}">Till dashboard</a>
+  </div>
+
+  <div class="note">Tips: om du trycker “Skapa marknadsföring” flera gånger skapas nya versioner. Bra om du vill testa olika copy, dåligt om du gillar städade listor.</div>
+</div>
+
+<div class="row">
+  <div class="card">
+    <h2>QR-kod</h2>
+    <div class="qr-box">
+      <img src="{{ url_for('qr_code', code=campaign.code, ref='flyer') }}" alt="QR-kod för {{ campaign.code }}">
+      <div>
+        <p class="subtle">Använd på flyers, affischer och sociala bilder. Klick loggas som <strong>flyer</strong>.</p>
+        <a class="button" href="{{ url_for('qr_code', code=campaign.code, ref='flyer') }}" download>Ladda ner QR</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Uppdatera kampanj</h2>
+    <form method="post" action="{{ url_for('campaign_update', campaign_id=campaign.id) }}">
+      <label for="status">Status</label>
+      <select id="status" name="status">
+        <option value="active" {% if campaign.status == 'active' %}selected{% endif %}>Aktiv</option>
+        <option value="paused" {% if campaign.status == 'paused' %}selected{% endif %}>Pausad</option>
+        <option value="done" {% if campaign.status == 'done' %}selected{% endif %}>Klar</option>
+      </select>
+
+      <label for="offer">Erbjudande</label>
+      <input id="offer" name="offer" value="{{ campaign.offer }}">
+
+      <label for="target_url">Mål-länk</label>
+      <input id="target_url" name="target_url" value="{{ campaign.target_url }}">
+
+      <label for="notes">Anteckning</label>
+      <textarea id="notes" name="notes" rows="4">{{ campaign.notes or '' }}</textarea>
+
+      <button type="submit">Spara</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Spårningslänkar</h2>
+  <p class="lead">Kopiera rätt länk till rätt kanal. Då ser du vad som ger klick.</p>
+  <div class="link-list">
+    {% for item in tracking_links %}
+    <div class="link-pill">
+      <strong>{{ item.label }}</strong>
+      <input id="link-{{ loop.index }}" value="{{ item.url }}" readonly>
+      <button class="light" type="button" onclick="copyById('link-{{ loop.index }}')">Kopiera</button>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Klick per källa</h2>
+  {% if clicks %}
+  <table>
+    <thead><tr><th>Källa</th><th>Klick</th></tr></thead>
+    <tbody>
+      {% for click in clicks %}
+      <tr><td>{{ click.ref or 'direct' }}</td><td><strong>{{ click.total }}</strong></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="subtle">Inga klick ännu.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Färdiga inlägg</h2>
+  {% if posts %}
+    {% for post in posts %}
+    <div class="post-card">
+      <div class="post-head">
+        <div>
+          <h3>{{ post.title }}</h3>
+          <span class="status {{ post.status }}">{{ post.status|status_label }}</span>
+          <small>{{ post.channel }} · {{ post.created_at }}</small>
+        </div>
+        <button class="light" type="button" onclick="copyById('post-{{ post.id }}')">Kopiera text</button>
+      </div>
+
+      <textarea id="post-{{ post.id }}" class="copy-textarea" readonly>{{ post.body }}</textarea>
+
+      <form class="inline-form" method="post" action="{{ url_for('post_update', post_id=post.id) }}">
+        <div class="row">
+          <div>
+            <label for="post-status-{{ post.id }}">Status</label>
+            <select id="post-status-{{ post.id }}" name="status">
+              <option value="draft" {% if post.status == 'draft' %}selected{% endif %}>Utkast</option>
+              <option value="posted" {% if post.status == 'posted' %}selected{% endif %}>Postad</option>
+              <option value="done" {% if post.status == 'done' %}selected{% endif %}>Klar/använd</option>
+            </select>
+          </div>
+          <div>
+            <label for="post-result-{{ post.id }}">Resultat</label>
+            <input id="post-result-{{ post.id }}" name="result" value="{{ post.result or '' }}" placeholder="Exempel: 2 kommentarer, 1 lead, noll respons">
+          </div>
+        </div>
+        <button type="submit">Spara status</button>
+      </form>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="subtle">Inga texter ännu. Tryck på “Skapa marknadsföring”.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Att-göra-lista</h2>
+  {% if tasks %}
+  <table>
+    <thead><tr><th>Datum</th><th>Kanal</th><th>Uppgift</th><th>Status/resultat</th></tr></thead>
+    <tbody>
+      {% for task in tasks %}
+      <tr>
+        <td>{{ task.task_date }}</td>
+        <td>{{ task.channel }}</td>
+        <td>{{ task.title }}</td>
+        <td>
+          <form method="post" action="{{ url_for('task_update', task_id=task.id) }}">
+            <select name="status">
+              <option value="todo" {% if task.status == 'todo' %}selected{% endif %}>Att göra</option>
+              <option value="done" {% if task.status == 'done' %}selected{% endif %}>Klar</option>
+            </select>
+            <input name="result" value="{{ task.result or '' }}" placeholder="Resultat/anteckning">
+            <button type="submit">Spara</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="subtle">Inga uppgifter ännu.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Leads från kampanjen</h2>
+  {% if leads %}
+  <table>
+    <thead><tr><th>Namn</th><th>Typ</th><th>Kontakt</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for lead in leads %}
+      <tr>
+        <td>{{ lead.name }}</td>
+        <td>{{ lead.lead_type }}<br><small>{{ lead.municipality }}</small></td>
+        <td>{{ lead.contact }}<br><small>{{ lead.source }}</small></td>
+        <td><span class="status {{ lead.status }}">{{ lead.status|status_label }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="subtle">Inga leads kopplade till kampanjen ännu.</p>
+  {% endif %}
+  <a class="button light" href="{{ url_for('leads') }}">Lägg till lead</a>
+</div>
+{% endblock %}
