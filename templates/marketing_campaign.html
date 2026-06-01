@@ -7,17 +7,28 @@
   <div class="info">
     <strong>Kampanjkod:</strong> {{ campaign.code }}<br>
     <strong>Erbjudande:</strong> {{ campaign.offer }}<br>
-    <strong>Mål-länk:</strong> {{ campaign.target_url }}
+    <strong>Bokningslänk:</strong> {{ campaign.target_url }}<br>
+    <strong>Genererat:</strong> {{ post_count }} inlägg{% if latest_version %} · senaste version {{ latest_version }}{% endif %}
   </div>
 
   <div class="actions">
     <form method="post" action="{{ url_for('campaign_generate', campaign_id=campaign.id) }}">
-      <button class="green" type="submit">Skapa marknadsföring</button>
+      <input type="hidden" name="mode" value="replace">
+      <button class="green" type="submit">Skapa / ersätt marknadsföring</button>
+    </form>
+    <form method="post" action="{{ url_for('campaign_generate', campaign_id=campaign.id) }}">
+      <input type="hidden" name="mode" value="new">
+      <button type="submit">Skapa ny version</button>
+    </form>
+    <form method="post" action="{{ url_for('campaign_clear_generated', campaign_id=campaign.id) }}" onsubmit="return confirm('Rensa alla genererade inlägg och uppgifter för denna kampanj?')">
+      <button class="danger" type="submit">Rensa genererat</button>
     </form>
     <a class="button light" href="{{ url_for('dashboard') }}">Till dashboard</a>
   </div>
 
-  <div class="note">Tips: om du trycker “Skapa marknadsföring” flera gånger skapas nya versioner. Bra om du vill testa olika copy, dåligt om du gillar städade listor.</div>
+  <div class="note">
+    Standardknappen ersätter gamla texter så sidan hålls ren. “Skapa ny version” sparar gamla versioner om du vill jämföra copy. Städning utan Excel-trauma.
+  </div>
 </div>
 
 <div class="row">
@@ -45,7 +56,7 @@
       <label for="offer">Erbjudande</label>
       <input id="offer" name="offer" value="{{ campaign.offer }}">
 
-      <label for="target_url">Mål-länk</label>
+      <label for="target_url">Bokningslänk</label>
       <input id="target_url" name="target_url" value="{{ campaign.target_url }}">
 
       <label for="notes">Anteckning</label>
@@ -68,6 +79,28 @@
     </div>
     {% endfor %}
   </div>
+</div>
+
+<div class="card">
+  <h2>Platser/grupper</h2>
+  {% if posting_places %}
+  <table>
+    <thead><tr><th>Namn</th><th>Kanal</th><th>Område</th><th>Länk/anteckning</th></tr></thead>
+    <tbody>
+      {% for place in posting_places %}
+      <tr>
+        <td><strong>{{ place.name }}</strong></td>
+        <td>{{ place.channel }}</td>
+        <td>{{ place.area }}</td>
+        <td>{% if place.url %}<a href="{{ place.url }}" target="_blank" rel="noopener">Öppna</a>{% else %}–{% endif %}<br><small>{{ place.note }}</small></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="subtle">Inga platser/grupper inlagda ännu.</p>
+  {% endif %}
+  <a class="button light" href="{{ url_for('places') }}">Lägg till platser/grupper</a>
 </div>
 
 <div class="card">
@@ -95,6 +128,7 @@
         <div>
           <h3>{{ post.title }}</h3>
           <span class="status {{ post.status }}">{{ post.status|status_label }}</span>
+          <span class="version-badge">Version {{ post.version or 1 }}</span>
           <small>{{ post.channel }} · {{ post.created_at }}</small>
         </div>
         <button class="light" type="button" onclick="copyById('post-{{ post.id }}')">Kopiera text</button>
@@ -122,7 +156,7 @@
     </div>
     {% endfor %}
   {% else %}
-    <p class="subtle">Inga texter ännu. Tryck på “Skapa marknadsföring”.</p>
+    <p class="subtle">Inga texter ännu. Tryck på “Skapa / ersätt marknadsföring”.</p>
   {% endif %}
 </div>
 
@@ -130,10 +164,11 @@
   <h2>Att-göra-lista</h2>
   {% if tasks %}
   <table>
-    <thead><tr><th>Datum</th><th>Kanal</th><th>Uppgift</th><th>Status/resultat</th></tr></thead>
+    <thead><tr><th>Version</th><th>Datum</th><th>Kanal</th><th>Uppgift</th><th>Status/resultat</th></tr></thead>
     <tbody>
       {% for task in tasks %}
       <tr>
+        <td>{{ task.version or 1 }}</td>
         <td>{{ task.task_date }}</td>
         <td>{{ task.channel }}</td>
         <td>{{ task.title }}</td>
