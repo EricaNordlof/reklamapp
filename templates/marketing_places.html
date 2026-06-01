@@ -1,0 +1,135 @@
+{% extends "marketing_base.html" %}
+{% block title %}Platser och grupper | Offroad Bumpis Marketing OS{% endblock %}
+
+{% block body %}
+<div class="card">
+  <h1>Platser / grupper</h1>
+  <p class="lead">
+    Spara Facebookgrupper, Reddit-trådar, caféer, parker, hallar och andra ställen där du brukar marknadsföra.
+    Appen blir bättre när den vet var du faktiskt gör jobbet.
+  </p>
+
+  <div class="info">
+    <strong>Syfte:</strong> slippa tänka “var ska jag lägga ut detta nu igen?” varje gång.
+  </div>
+</div>
+
+<div class="card">
+  <h2>Lägg till plats eller grupp</h2>
+
+  <form method="post">
+    <div class="row">
+      <div>
+        <label for="name">Namn</label>
+        <input
+          id="name"
+          name="name"
+          required
+          placeholder="Exempel: Malmö barnfamiljer, Bulltofta café, Reddit Helsingborg"
+        >
+      </div>
+
+      <div>
+        <label for="channel">Kanal / typ</label>
+        <select id="channel" name="channel">
+          {% for channel in channels %}
+            <option value="{{ channel }}">{{ channel }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="url">Länk</label>
+        <input
+          id="url"
+          name="url"
+          placeholder="https://..."
+        >
+      </div>
+
+      <div>
+        <label for="area">Område</label>
+        <input
+          id="area"
+          name="area"
+          placeholder="Malmö, Lund, Trelleborg, Helsingborg..."
+        >
+      </div>
+    </div>
+
+    <label for="note">Anteckning</label>
+    <textarea
+      id="note"
+      name="note"
+      rows="3"
+      placeholder="Exempel: Funkar bäst med enkla inlägg. Inte för säljigt. Posta kvällstid."
+    ></textarea>
+
+    <input type="hidden" name="status" value="active">
+
+    <button class="green" type="submit">Spara plats/grupp</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Sparade platser och grupper</h2>
+
+  {% if places %}
+    <table>
+      <thead>
+        <tr>
+          <th>Namn</th>
+          <th>Kanal</th>
+          <th>Område</th>
+          <th>Länk</th>
+          <th>Status / anteckning</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for place in places %}
+          <tr>
+            <td>
+              <strong>{{ place.name }}</strong><br>
+              <small>{{ place.created_at }}</small>
+            </td>
+
+            <td>{{ place.channel }}</td>
+
+            <td>{{ place.area or '–' }}</td>
+
+            <td>
+              {% if place.url %}
+                <a href="{{ place.url }}" target="_blank" rel="noopener noreferrer">Öppna</a>
+              {% else %}
+                –
+              {% endif %}
+            </td>
+
+            <td>
+              <form method="post" action="{{ url_for('place_update', place_id=place.id) }}">
+                <select name="status">
+                  <option value="active" {% if place.status == 'active' %}selected{% endif %}>Aktiv</option>
+                  <option value="paused" {% if place.status == 'paused' %}selected{% endif %}>Pausad</option>
+                  <option value="hidden" {% if place.status == 'hidden' %}selected{% endif %}>Dold</option>
+                </select>
+
+                <textarea name="note" rows="2">{{ place.note or '' }}</textarea>
+
+                <button type="submit">Spara</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="subtle">
+      Inga platser eller grupper sparade ännu. Lägg in dina vanligaste Facebookgrupper, Reddit-sidor,
+      caféer, parker och andra marknadsföringsställen här.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}
