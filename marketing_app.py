@@ -100,6 +100,12 @@ def close_db(_: Optional[BaseException]) -> None:
         db.close()
 
 
+def ensure_column(db: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
 def init_db() -> None:
     db = get_db()
     db.execute(
@@ -130,6 +136,7 @@ def init_db() -> None:
             body TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'draft',
             result TEXT,
+            version INTEGER NOT NULL DEFAULT 1,
             FOREIGN KEY (campaign_id) REFERENCES campaigns(id)
         )
         """
@@ -145,6 +152,7 @@ def init_db() -> None:
             title TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'todo',
             result TEXT,
+            version INTEGER NOT NULL DEFAULT 1,
             FOREIGN KEY (campaign_id) REFERENCES campaigns(id)
         )
         """
@@ -180,6 +188,22 @@ def init_db() -> None:
         )
         """
     )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS posting_places (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            name TEXT NOT NULL,
+            channel TEXT NOT NULL DEFAULT 'Facebook-grupp',
+            url TEXT,
+            area TEXT,
+            note TEXT,
+            status TEXT NOT NULL DEFAULT 'active'
+        )
+        """
+    )
+    ensure_column(db, "posts", "version", "INTEGER NOT NULL DEFAULT 1")
+    ensure_column(db, "tasks", "version", "INTEGER NOT NULL DEFAULT 1")
     db.commit()
 
 
@@ -239,12 +263,69 @@ def campaign_options() -> dict:
     return {"channels": CHANNELS, "audiences": AUDIENCES, "products": PRODUCTS, "booking_url": BOOKING_URL}
 
 
+def next_content_version(campaign_id: int) -> int:
+    row = get_db().execute(
+        "SELECT COALESCE(MAX(version), 0) AS v FROM posts WHERE campaign_id = ?",
+        (campaign_id,),
+    ).fetchone()
+    return int(row["v"]) + 1
+
+
+def campaign_angle(campaign: sqlite3.Row | dict) -> dict[str, str]:
+    audience = (campaign["audience"] or "").lower()
+
+    if "skola" in audience or "fritids" in audience:
+        return {
+            "who": "skolor, fritids och klassföräldrar",
+            "hook": "Planera en aktivitet där många barn kan vara med utan att du behöver uppfinna OS 2.0.",
+            "benefits": "- enkel aktivitet för många barn\n- funkar på gräs, konstgräs eller i idrottshall\n- batteridriven pump ingår\n- tydligt upplägg och möjlighet till turneringskit",
+            "cta": "Vill du ha en enkel aktivitet till skolavslutning, fritidsdag eller klassaktivitet?",
+            "mail_subject": "Bumperballs till skola, fritids eller avslutning",
+        }
+
+    if "förening" in audience or "lag" in audience:
+        return {
+            "who": "lag, föreningar och ungdomsgrupper",
+            "hook": "Perfekt till avslutning, cupdag eller en träning där alla faktiskt skrattar.",
+            "benefits": "- roligt för lagaktivitet och avslutning\n- kan köras som matcher eller fri lek\n- funkar på gräs, konstgräs eller i hall\n- leverans kan bokas inom Skåne",
+            "cta": "Vill du göra nästa avslutning lite roligare än korv + diplom?",
+            "mail_subject": "Bumperballs till förening eller lagavslutning",
+        }
+
+    if "företag" in audience or "kickoff" in audience:
+        return {
+            "who": "företag, arbetslag och event",
+            "hook": "Kickoff utan PowerPoint-döden. Bumperballs är enkelt, fysiskt och svårt att inte skratta åt.",
+            "benefits": "- passar AW, kickoff och företagsevent\n- vuxenbollar finns/kan bokas enligt tillgänglighet\n- funkar ute eller i hall\n- leverans kan bokas inom Skåne",
+            "cta": "Vill du boka en aktivitet som inte känns som ännu en obligatorisk mingelövning?",
+            "mail_subject": "Bumperballs till kickoff eller företagsevent",
+        }
+
+    if "café" in audience or "park" in audience:
+        return {
+            "who": "caféer, parker och lokala samarbeten",
+            "hook": "Bumperballs nära café/park kan ge både aktivitet och fler fikagäster. Två flugor, en uppblåsbar boll.",
+            "benefits": "- passar parker och öppna ytor nära café\n- flyers/QR kan lämnas där folk redan rör sig\n- batteridriven pump, inget eluttag behövs\n- lokalt upplägg i Skåne",
+            "cta": "Vill du tipsa om en plats eller samarbeta lokalt?",
+            "mail_subject": "Lokalt samarbete med bumperballs",
+        }
+
+    return {
+        "who": "föräldrar, barnkalas och lokala grupper",
+        "hook": "Barnkalas som inte slutar med att alla sitter med varsin skärm efter 12 minuter.",
+        "benefits": "- roligt till barnkalas, skolavslutning och kompisgäng\n- batteridriven pump ingår\n- funkar på gräs, konstgräs eller i hall\n- boka nu och betala senare enligt villkor",
+        "cta": "Vill du boka ett datum eller bara ha något kul att se fram emot?",
+        "mail_subject": "Bumperballs till barnkalas eller aktivitet",
+    }
+
+
 def generate_content_for_campaign(campaign: sqlite3.Row) -> list[dict[str, str]]:
     c = dict(campaign)
     area = c["area"].strip() or "Skåne"
     offer = c["offer"].strip() or "Boka datum nu och betala senast 3 dagar före utlämning."
     product = c["product"].strip() or "Bumperballs"
     audience = c["audience"].strip() or "lokala kunder"
+    angle = campaign_angle(c)
 
     fb_link = tracking_url(c, "facebook-grupp")
     insta_link = tracking_url(c, "instagram")
@@ -253,41 +334,44 @@ def generate_content_for_campaign(campaign: sqlite3.Row) -> list[dict[str, str]]
     mail_link = tracking_url(c, "mail")
     flyer_link = tracking_url(c, "flyer")
     seo_link = tracking_url(c, "seo")
+    page_ref = area.split(",")[0].strip() or "Skåne"
 
     return [
         {
             "channel": "Facebook-grupp",
             "title": f"FB-grupp: {area}",
-            "body": f"""Tips till er som vill göra något roligt med barnen i {area} 👇
+            "body": f"""Tips till er som vill göra något roligt i {area} 👇
 
-Jag hyr ut {product.lower()} via Offroad Bumpis. Det passar bra till barnkalas, skolavslutning, fritids, föreningar och kompisgäng.
+Jag hyr ut {product.lower()} via Offroad Bumpis. {angle['hook']}
 
-Det är stora uppblåsbara bollar som man springer runt i, krockar lite lagom och ramlar utan att det gör ont. Enkelt upplägg, batteridriven pump och det funkar på gräs, konstgräs eller i idrottshall.
+Passar för {angle['who']}. Det är stora uppblåsbara bollar som man springer runt i, krockar lite lagom och ramlar utan att det gör ont.
+
+{angle['benefits']}
 
 {offer}
 
 Boka här:
 {fb_link}
 
-#offroadbumpis #bumperballs #barnkalas #skåne""",
+#offroadbumpis #bumperballs #skåne #barnkalas #aktivitet""",
         },
         {
             "channel": "Instagram",
             "title": f"Instagram: {campaign['name']}",
             "body": f"""Bumperballs i {area} ⚽️💥
 
-Perfekt när man vill ha en aktivitet som barnen faktiskt minns efteråt.
+{angle['hook']}
 
 ✅ {product}
-✅ För kalas, skolor, fritids och föreningar
+✅ För {audience.lower()}
 ✅ Batteridriven pump
-✅ Kan spelas på gräs, konstgräs eller i hall
+✅ Gräs, konstgräs eller hall
 ✅ {offer}
 
-Boka via länken:
+Boka här:
 {insta_link}
 
-#offroadbumpis #bumperballs #barnkalas #skåne #malmö #lund #trelleborg #helsingborg #aktivitetförbarn""",
+#offroadbumpis #bumperballs #skåne #malmö #lund #trelleborg #helsingborg #barnkalas #aktivitetförbarn""",
         },
         {
             "channel": "Facebook-sida",
@@ -296,9 +380,11 @@ Boka via länken:
 
 Offroad Bumpis hyr ut {product.lower()} i {area}. Passar för {audience.lower()}.
 
+{angle['cta']}
+
 {offer}
 
-Vill du boka ett datum? Gå hit:
+Boka här:
 {tracking_url(c, 'facebook-sida')}""",
         },
         {
@@ -328,19 +414,16 @@ Jag tar gärna emot tips och lägger in dem på sidan sen. Min sida är Offroad 
         {
             "channel": "Mail",
             "title": f"Mail: {audience}",
-            "body": f"""Ämne: Bumperballs till aktivitet i {area}
+            "body": f"""Ämne: {angle['mail_subject']} i {page_ref}
 
 Hej!
 
 Jag heter Erica och driver Offroad Bumpis i Skåne.
 
-Jag hyr ut {product.lower()} till bland annat skolor, fritids, föreningar, kalas och gruppaktiviteter. Det är en enkel aktivitet där deltagarna springer runt i stora uppblåsbara bollar och spelar/krockar på ett kontrollerat sätt.
+Jag hyr ut {product.lower()} till bland annat skolor, fritids, föreningar, kalas och gruppaktiviteter.
 
 Kort upplägg:
-- passar bäst på gräs, konstgräs eller i idrottshall
-- batteridriven pump ingår
-- tydliga priser
-- leverans kan bokas inom Skåne
+{angle['benefits']}
 - {offer}
 
 Här finns bokning och mer info:
@@ -373,16 +456,22 @@ Tips: sätt QR-koden från kampanjsidan på flyern.""",
             "channel": "SEO/blogg",
             "title": f"SEO-idé: {area}",
             "body": f"""Sidtitel:
-Hyr bumperballs i {area} | Offroad Bumpis
+Hyr bumperballs i {page_ref} | Offroad Bumpis
 
 Meta description:
-Hyr bumperballs i {area} till barnkalas, skola, fritids, förening eller event. Enkel bokning, tydliga priser och leverans inom Skåne.
+Hyr bumperballs i {page_ref} till barnkalas, skola, fritids, förening eller event. Enkel bokning, tydliga priser och leverans inom Skåne.
 
 Rubrik:
-Bumperballs i {area}
+Bumperballs i {page_ref}
 
 Textstart:
-Vill du hyra bumperballs i {area}? Offroad Bumpis hyr ut {product.lower()} till kalas, skolor, fritids, föreningar och andra gruppaktiviteter. Det funkar bäst på gräs, konstgräs eller i idrottshall.
+Vill du hyra bumperballs i {page_ref}? Offroad Bumpis hyr ut {product.lower()} till {audience.lower()}. Det funkar bäst på gräs, konstgräs eller i idrottshall.
+
+Sektioner att lägga till:
+- Vad ingår?
+- Var kan man spela i {page_ref}?
+- Pris och leverans
+- Boka datum
 
 CTA:
 Boka här: {seo_link}""",
@@ -393,15 +482,26 @@ Boka här: {seo_link}""",
 def generate_tasks_for_campaign(campaign: sqlite3.Row) -> list[dict[str, str]]:
     start = date.today()
     area = campaign["area"] or "Skåne"
-    return [
+    audience = (campaign["audience"] or "").lower()
+
+    tasks = [
         {"task_date": (start + timedelta(days=0)).isoformat(), "channel": "Facebook-grupp", "title": f"Dela kampanjen i 2 relevanta grupper för {area}."},
         {"task_date": (start + timedelta(days=1)).isoformat(), "channel": "Instagram", "title": "Lägg upp bild/reel + använd Instagramtexten."},
         {"task_date": (start + timedelta(days=2)).isoformat(), "channel": "Google Business Profile", "title": "Publicera lokalt Google-inlägg."},
-        {"task_date": (start + timedelta(days=3)).isoformat(), "channel": "Mail", "title": "Skicka mailet till 5 skolor/föreningar/företag."},
+        {"task_date": (start + timedelta(days=3)).isoformat(), "channel": "Mail", "title": "Skicka mailet till 5 relevanta kontakter."},
         {"task_date": (start + timedelta(days=4)).isoformat(), "channel": "Flyer", "title": "Lägg flyers på 1–2 platser nära park/café/hall."},
         {"task_date": (start + timedelta(days=5)).isoformat(), "channel": "Lead", "title": "Följ upp alla som svarat, gillat eller frågat."},
         {"task_date": (start + timedelta(days=6)).isoformat(), "channel": "Analys", "title": "Kolla vad som gav klick/bokning. Skrota resten utan sentimentalitet."},
     ]
+
+    if "skola" in audience or "fritids" in audience:
+        tasks.insert(1, {"task_date": start.isoformat(), "channel": "Mail", "title": "Maila 5 skolor/fritids eller klassföräldrar i området."})
+    elif "företag" in audience or "kickoff" in audience:
+        tasks.insert(1, {"task_date": start.isoformat(), "channel": "Mail", "title": "Maila 5 lokala företag/eventansvariga."})
+    elif "förening" in audience or "lag" in audience:
+        tasks.insert(1, {"task_date": start.isoformat(), "channel": "Mail", "title": "Maila 5 föreningar eller lagledare."})
+
+    return tasks
 
 
 @app.route("/")
@@ -476,6 +576,18 @@ def dashboard():
         LIMIT 12
         """
     ).fetchall()
+    focus_tasks = db.execute(
+        """
+        SELECT t.*, c.name AS campaign_name
+        FROM tasks t
+        LEFT JOIN campaigns c ON c.id = t.campaign_id
+        WHERE t.status = 'todo'
+          AND t.task_date <= ?
+        ORDER BY t.task_date ASC, t.id ASC
+        LIMIT 5
+        """,
+        (today_iso(),),
+    ).fetchall()
     leads = db.execute("SELECT * FROM leads ORDER BY id DESC LIMIT 8").fetchall()
     clicks = db.execute(
         """
@@ -486,14 +598,17 @@ def dashboard():
         LIMIT 12
         """
     ).fetchall()
+    places = db.execute("SELECT * FROM posting_places WHERE status = 'active' ORDER BY id DESC LIMIT 8").fetchall()
 
     return render_template(
         "marketing_dashboard.html",
         stats=stats,
         campaigns=campaigns,
         tasks=tasks,
+        focus_tasks=focus_tasks,
         leads=leads,
         clicks=clicks,
+        places=places,
         today=today_iso(),
         **campaign_options(),
     )
@@ -507,13 +622,17 @@ def campaign_view(campaign_id: int):
     if not campaign:
         return redirect(url_for("dashboard"))
 
-    posts = db.execute("SELECT * FROM posts WHERE campaign_id = ? ORDER BY id DESC", (campaign_id,)).fetchall()
-    tasks = db.execute("SELECT * FROM tasks WHERE campaign_id = ? ORDER BY task_date ASC, id ASC", (campaign_id,)).fetchall()
+    posts = db.execute("SELECT * FROM posts WHERE campaign_id = ? ORDER BY version DESC, id DESC", (campaign_id,)).fetchall()
+    tasks = db.execute("SELECT * FROM tasks WHERE campaign_id = ? ORDER BY version DESC, task_date ASC, id ASC", (campaign_id,)).fetchall()
     leads = db.execute("SELECT * FROM leads WHERE campaign_id = ? ORDER BY id DESC", (campaign_id,)).fetchall()
     clicks = db.execute(
         "SELECT ref, COUNT(*) AS total FROM clicks WHERE campaign_id = ? GROUP BY ref ORDER BY total DESC",
         (campaign_id,),
     ).fetchall()
+    version_row = db.execute(
+        "SELECT COALESCE(MAX(version), 0) AS latest_version, COUNT(*) AS post_count FROM posts WHERE campaign_id = ?",
+        (campaign_id,),
+    ).fetchone()
 
     tracking_links = [
         {"label": "Facebook-grupp", "url": tracking_url(campaign, "facebook-grupp")},
@@ -522,6 +641,7 @@ def campaign_view(campaign_id: int):
         {"label": "Mail", "url": tracking_url(campaign, "mail")},
         {"label": "Flyer", "url": tracking_url(campaign, "flyer")},
     ]
+    posting_places = db.execute("SELECT * FROM posting_places WHERE status = 'active' ORDER BY channel, name").fetchall()
 
     return render_template(
         "marketing_campaign.html",
@@ -531,6 +651,9 @@ def campaign_view(campaign_id: int):
         leads=leads,
         clicks=clicks,
         tracking_links=tracking_links,
+        latest_version=int(version_row["latest_version"]),
+        post_count=int(version_row["post_count"]),
+        posting_places=posting_places,
         **campaign_options(),
     )
 
@@ -559,26 +682,44 @@ def campaign_generate(campaign_id: int):
     if not campaign:
         return redirect(url_for("dashboard"))
 
+    mode = request.form.get("mode", "replace")
+    if mode == "replace":
+        db.execute("DELETE FROM posts WHERE campaign_id = ?", (campaign_id,))
+        db.execute("DELETE FROM tasks WHERE campaign_id = ?", (campaign_id,))
+        version = 1
+    else:
+        version = next_content_version(campaign_id)
+
     posts = generate_content_for_campaign(campaign)
     for post in posts:
         db.execute(
             """
-            INSERT INTO posts (campaign_id, created_at, channel, title, body, status, result)
-            VALUES (?, ?, ?, ?, ?, 'draft', '')
+            INSERT INTO posts (campaign_id, created_at, channel, title, body, status, result, version)
+            VALUES (?, ?, ?, ?, ?, 'draft', '', ?)
             """,
-            (campaign_id, now_iso(), post["channel"], post["title"], post["body"]),
+            (campaign_id, now_iso(), post["channel"], post["title"], post["body"], version),
         )
 
     tasks = generate_tasks_for_campaign(campaign)
     for task in tasks:
         db.execute(
             """
-            INSERT INTO tasks (campaign_id, created_at, task_date, channel, title, status, result)
-            VALUES (?, ?, ?, ?, ?, 'todo', '')
+            INSERT INTO tasks (campaign_id, created_at, task_date, channel, title, status, result, version)
+            VALUES (?, ?, ?, ?, ?, 'todo', '', ?)
             """,
-            (campaign_id, now_iso(), task["task_date"], task["channel"], task["title"]),
+            (campaign_id, now_iso(), task["task_date"], task["channel"], task["title"], version),
         )
 
+    db.commit()
+    return redirect(url_for("campaign_view", campaign_id=campaign_id))
+
+
+@app.post("/admin/campaign/<int:campaign_id>/clear")
+@admin_required
+def campaign_clear_generated(campaign_id: int):
+    db = get_db()
+    db.execute("DELETE FROM posts WHERE campaign_id = ?", (campaign_id,))
+    db.execute("DELETE FROM tasks WHERE campaign_id = ?", (campaign_id,))
     db.commit()
     return redirect(url_for("campaign_view", campaign_id=campaign_id))
 
@@ -674,6 +815,47 @@ def lead_update(lead_id: int):
     return redirect(url_for("leads"))
 
 
+@app.route("/admin/places", methods=["GET", "POST"])
+@admin_required
+def places():
+    db = get_db()
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        if name:
+            db.execute(
+                """
+                INSERT INTO posting_places (created_at, name, channel, url, area, note, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    now_iso(),
+                    name,
+                    request.form.get("channel", "Facebook-grupp"),
+                    request.form.get("url", "").strip(),
+                    request.form.get("area", "").strip(),
+                    request.form.get("note", "").strip(),
+                    request.form.get("status", "active"),
+                ),
+            )
+            db.commit()
+        return redirect(url_for("places"))
+
+    rows = db.execute("SELECT * FROM posting_places ORDER BY status, channel, name").fetchall()
+    return render_template("marketing_places.html", places=rows, channels=CHANNELS)
+
+
+@app.post("/admin/place/<int:place_id>/update")
+@admin_required
+def place_update(place_id: int):
+    db = get_db()
+    db.execute(
+        "UPDATE posting_places SET status = ?, note = ? WHERE id = ?",
+        (request.form.get("status", "active"), request.form.get("note", ""), place_id),
+    )
+    db.commit()
+    return redirect(url_for("places"))
+
+
 @app.route("/admin/export/leads.csv")
 @admin_required
 def export_leads():
@@ -744,6 +926,7 @@ def status_label(value: str) -> str:
         "bokad": "Bokad",
         "inte_nu": "Inte nu",
         "död": "Död lead",
+        "hidden": "Dold",
     }
     return labels.get(value, value)
 
