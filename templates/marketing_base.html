@@ -37,10 +37,35 @@
       margin-bottom:18px;
     }
 
-    .brand img {
-      width:min(260px, 78vw);
-      height:auto;
+    .brand-mark {
+      width:min(360px, 86vw);
+      min-height:86px;
+      background:linear-gradient(135deg, #0f5f2f, #0b3b1f);
+      color:white;
+      border-radius:18px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      box-shadow:0 8px 24px rgba(15,95,47,.22);
+      padding:14px 20px;
+      letter-spacing:.01em;
+    }
+
+    .brand-mark strong {
       display:block;
+      font-size:28px;
+      line-height:1.05;
+      font-weight:900;
+    }
+
+    .brand-mark span {
+      display:block;
+      margin-top:4px;
+      font-size:13px;
+      opacity:.9;
+      font-weight:700;
     }
 
     .nav {
@@ -191,6 +216,16 @@
     .button.light:hover,
     button.light:hover { background:#f8fafc; }
 
+    .button.danger,
+    button.danger {
+      background:#fee2e2;
+      color:#991b1b;
+      border:1px solid #fecaca;
+    }
+
+    .button.danger:hover,
+    button.danger:hover { background:#fecaca; }
+
     .row {
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -256,7 +291,8 @@
       color:white;
     }
 
-    .status {
+    .status,
+    .version-badge {
       display:inline-block;
       padding:4px 9px;
       border-radius:999px;
@@ -278,7 +314,8 @@
     .status.svarat,
     .status.inte_nu { background:#fff8dd; color:#713f12; }
 
-    .status.död { background:#fee2e2; color:#991b1b; }
+    .status.död,
+    .status.hidden { background:#fee2e2; color:#991b1b; }
 
     .post-card {
       border:1px solid var(--border);
@@ -336,10 +373,34 @@
       gap:8px;
     }
 
+    .focus-list {
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .focus-item {
+      border:1px solid var(--mint-border);
+      background:var(--mint);
+      border-radius:14px;
+      padding:12px;
+    }
+
+    .quick-template {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin:10px 0 4px;
+    }
+
+    .quick-template button { margin-top:0; }
+
     @media(max-width:800px) {
       body { padding:12px; }
       .card { padding:18px; }
       h1 { font-size:28px; }
+      .brand-mark { width:100%; min-height:78px; }
+      .brand-mark strong { font-size:24px; }
       .row,
       .grid-3,
       .grid-4,
@@ -351,13 +412,17 @@
 </head>
 <body>
   <div class="brand">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Offroad Bumpis logga" onerror="this.style.display='none'">
+    <div class="brand-mark">
+      <strong>Offroad Bumpis</strong>
+      <span>Marketing OS</span>
+    </div>
   </div>
 
   {% if session.get('admin') %}
   <nav class="nav">
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     <a href="{{ url_for('leads') }}">Leads</a>
+    <a href="{{ url_for('places') }}">Platser/grupper</a>
     <a href="{{ url_for('export_leads') }}">Exportera leads</a>
     <a href="{{ url_for('logout') }}">Logga ut</a>
   </nav>
@@ -379,6 +444,60 @@
           setTimeout(() => old.textContent = text, 1200);
         }
       }).catch(() => document.execCommand('copy'));
+    }
+
+    function fillCampaignTemplate(type) {
+      const data = {
+        barnkalas: {
+          name: 'Barnkalas med bumperballs',
+          audience: 'Föräldrar / barnkalas',
+          product: 'Barnbollar',
+          area: 'Malmö, Lund, Trelleborg',
+          offer: 'Boka nu utan kostnad. Betala senast 3 dagar före utlämning, annars släpps bokningen bara.',
+          notes: 'Facebookgrupper för barnfamiljer, Instagram, flyers vid parker och caféer.'
+        },
+        skola: {
+          name: 'Skolavslutning med bumperballs',
+          audience: 'Skola / fritids',
+          product: 'Barnbollar + vuxenbollar',
+          area: 'Skåne',
+          offer: 'Enkel aktivitet för skola/fritids. Boka datum nu och betala enligt överenskommelse.',
+          notes: 'Maila skolor, fritids, klassföräldrar och föreningar.'
+        },
+        forening: {
+          name: 'Lagavslutning med bumperballs',
+          audience: 'Förening / lag',
+          product: 'Barnbollar + vuxenbollar',
+          area: 'Skåne',
+          offer: 'Passar avslutning, cupdag eller rolig extraträning. Boka datum nu, betala senare.',
+          notes: 'Maila lagledare, föreningar och ungdomslag.'
+        },
+        foretag: {
+          name: 'Kickoff med bumperballs',
+          audience: 'Företag / kickoff',
+          product: 'Vuxenbollar',
+          area: 'Malmö, Lund, Helsingborg',
+          offer: 'Boka vuxenbollar till kickoff, AW eller företagsevent. Leverans inom Skåne kan bokas.',
+          notes: 'Maila lokala företag, eventansvariga och kontor.'
+        },
+        flyer: {
+          name: 'Flyers vid park och café',
+          audience: 'Café / park / samarbeten',
+          product: 'Bumperballs med leverans',
+          area: 'Malmö',
+          offer: 'Boka utan kostnad. Betala senast 3 dagar före utlämning. QR-kod finns på flyern.',
+          notes: 'Lägg flyers vid caféer nära parker, hallar och aktivitetsytor.'
+        }
+      }[type];
+      if (!data) return;
+      for (const key of ['name', 'area', 'offer', 'notes']) {
+        const el = document.getElementById(key);
+        if (el) el.value = data[key];
+      }
+      const audience = document.getElementById('audience');
+      if (audience) audience.value = data.audience;
+      const product = document.getElementById('product');
+      if (product) product.value = data.product;
     }
   </script>
 </body>
